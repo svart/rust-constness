@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "observations": [
+    {
+      "release": "1.85.0",
+      "total_methods": 100,
+      "const_methods": 35,
+      "source": "fixture"
+    },
+    {
+      "release": "1.97.1",
+      "total_methods": 140,
+      "const_methods": 75,
+      "source": "fixture"
+    }
+  ]
+}

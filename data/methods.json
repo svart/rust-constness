@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "observations": [
+    {
+      "release": "1.97.1",
+      "total_methods": 4374,
+      "const_methods": 2502,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.97.1/share/doc/rust/html"
+    }
+  ]
+}
