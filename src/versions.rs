@@ -124,6 +124,10 @@ fn parse_release(value: &str) -> Result<Version> {
     })
 }
 
+pub(crate) fn release_is_before(release: &str, cutoff: &str) -> Result<bool> {
+    Ok(parse_release(release)? < parse_release(cutoff)?)
+}
+
 fn parse_component(component: Option<&str>, value: &str) -> Result<u64> {
     let component = component
         .filter(|component| !component.is_empty())
@@ -158,5 +162,12 @@ mod tests {
         assert!(select("1.97.1-1.50").is_err());
         assert!(select("1.98.0").is_err());
         assert!(select("1.50-1.49").is_err());
+    }
+
+    #[test]
+    fn compares_exact_releases() {
+        assert!(release_is_before("1.30.1", "1.31.0").unwrap());
+        assert!(!release_is_before("1.31.0", "1.31.0").unwrap());
+        assert!(!release_is_before("1.31.1", "1.31.0").unwrap());
     }
 }

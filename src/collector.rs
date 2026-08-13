@@ -16,7 +16,10 @@ use ureq::Agent;
 
 use crate::{
     Result,
-    artifact::{DocsArtifact, manifest_url, resolve_docs_artifact},
+    artifact::{
+        DocsArtifact, legacy_docs_checksum_url, manifest_url, resolve_docs_artifact,
+        resolve_legacy_docs_artifact, uses_legacy_docs_metadata,
+    },
     dataset::{Dataset, ReleaseObservation},
     html::count_methods_in_html_root,
 };
@@ -127,7 +130,7 @@ impl RustDocsCollector {
     ) -> Result<ReleaseObservation> {
         validate_release_name(release)?;
         let html_root = self.ensure_docs(release, progress)?;
-        let counts = count_methods_in_html_root(&html_root)?;
+        let counts = count_methods_in_html_root(&html_root, release)?;
         progress.finish_with_message("done");
 
         Ok(ReleaseObservation {
@@ -146,9 +149,15 @@ impl RustDocsCollector {
         }
 
         fs::create_dir_all(&self.cache_root)?;
-        progress.set_message("fetching manifest");
-        let manifest = download_text(&manifest_url(release))?;
-        let artifact = resolve_docs_artifact(&manifest, &self.host_target)?;
+        let artifact = if uses_legacy_docs_metadata(release)? {
+            progress.set_message("fetching checksum");
+            let checksum = download_text(&legacy_docs_checksum_url(release, &self.host_target))?;
+            resolve_legacy_docs_artifact(release, &self.host_target, &checksum)?
+        } else {
+            progress.set_message("fetching manifest");
+            let manifest = download_text(&manifest_url(release))?;
+            resolve_docs_artifact(&manifest, &self.host_target)?
+        };
         let archive_path = self.cache_root.join(format!(
             ".rust-docs-{release}-{}.tar.gz",
             std::process::id()
@@ -409,7 +418,8 @@ fn std_relative_path(path: &Path) -> Option<PathBuf> {
 }
 
 fn find_html_root_at_depth(root: &Path, depth: usize) -> Result<Option<PathBuf>> {
-    if root.join("share/doc/rust/html/std/all.html").is_file() {
+    let std_root = root.join("share/doc/rust/html/std");
+    if std_root.join("all.html").is_file() || std_root.join("index.html").is_file() {
         return Ok(Some(root.join("share/doc/rust/html")));
     }
 
@@ -555,7 +565,7 @@ mod tests {
 
         append_archive_file(
             &mut builder,
-            "rust-docs-1.97.1/rust-docs/share/doc/rust/html/std/all.html",
+            "rust-docs-1.0.0/rust-docs/share/doc/rust/html/std/index.html",
             "std",
         );
         append_archive_file(
@@ -586,7 +596,7 @@ mod tests {
             .extract_archive("1.97.1", &archive_path, &artifact)
             .unwrap();
 
-        assert!(html_root.join("std/all.html").is_file());
+        assert!(html_root.join("std/index.html").is_file());
         assert!(
             !root
                 .join("1.97.1/share/doc/rust/html/book/index.html")

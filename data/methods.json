@@ -2,6 +2,156 @@
   "schema_version": 1,
   "observations": [
     {
+      "release": "1.80.0",
+      "total_methods": 3621,
+      "const_methods": 1737,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.80.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.80.1",
+      "total_methods": 3621,
+      "const_methods": 1737,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.80.1/share/doc/rust/html"
+    },
+    {
+      "release": "1.81.0",
+      "total_methods": 3627,
+      "const_methods": 1743,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.81.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.82.0",
+      "total_methods": 3651,
+      "const_methods": 1761,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.82.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.83.0",
+      "total_methods": 3667,
+      "const_methods": 1852,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.83.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.84.0",
+      "total_methods": 3708,
+      "const_methods": 1919,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.84.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.84.1",
+      "total_methods": 3708,
+      "const_methods": 1919,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.84.1/share/doc/rust/html"
+    },
+    {
+      "release": "1.85.0",
+      "total_methods": 3758,
+      "const_methods": 1971,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.85.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.85.1",
+      "total_methods": 3758,
+      "const_methods": 1971,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.85.1/share/doc/rust/html"
+    },
+    {
+      "release": "1.86.0",
+      "total_methods": 3800,
+      "const_methods": 1997,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.86.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.87.0",
+      "total_methods": 3886,
+      "const_methods": 2095,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.87.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.88.0",
+      "total_methods": 3897,
+      "const_methods": 2108,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.88.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.89.0",
+      "total_methods": 3911,
+      "const_methods": 2115,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.89.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.90.0",
+      "total_methods": 3935,
+      "const_methods": 2152,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.90.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.91.0",
+      "total_methods": 4149,
+      "const_methods": 2334,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.91.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.91.1",
+      "total_methods": 4149,
+      "const_methods": 2334,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.91.1/share/doc/rust/html"
+    },
+    {
+      "release": "1.92.0",
+      "total_methods": 4160,
+      "const_methods": 2342,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.92.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.93.0",
+      "total_methods": 4206,
+      "const_methods": 2380,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.93.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.93.1",
+      "total_methods": 4206,
+      "const_methods": 2380,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.93.1/share/doc/rust/html"
+    },
+    {
+      "release": "1.94.0",
+      "total_methods": 4209,
+      "const_methods": 2382,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.94.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.94.1",
+      "total_methods": 4209,
+      "const_methods": 2382,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.94.1/share/doc/rust/html"
+    },
+    {
+      "release": "1.95.0",
+      "total_methods": 4258,
+      "const_methods": 2391,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.95.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.96.0",
+      "total_methods": 4266,
+      "const_methods": 2393,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.96.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.96.1",
+      "total_methods": 4266,
+      "const_methods": 2393,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.96.1/share/doc/rust/html"
+    },
+    {
+      "release": "1.97.0",
+      "total_methods": 4374,
+      "const_methods": 2502,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.97.0/share/doc/rust/html"
+    },
+    {
       "release": "1.97.1",
       "total_methods": 4374,
       "const_methods": 2502,
