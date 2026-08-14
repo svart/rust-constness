@@ -1,5 +1,7 @@
 # rust-constness
 
+![Rust standard-library method constness chart](assets/rust-standard-library-method-constness.png)
+
 This project collects the number of stable public methods and associated
 functions in Rust's standard-library rustdoc artifacts, then draws the totals
 and the const-capable subset as two Plotly lines in an HTML file.
