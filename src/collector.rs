@@ -9,7 +9,7 @@ use std::{
 };
 
 use flate2::read::GzDecoder;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use sha2::{Digest, Sha256};
 use tar::Archive;
 use ureq::Agent;
@@ -59,7 +59,7 @@ impl RustDocsCollector {
             return Err("parallel download count must be greater than zero".into());
         }
 
-        let progress = ProgressBars::new(releases);
+        let progress = ProgressBars::new();
         let next_release = AtomicUsize::new(0);
         let worker_count = parallel_downloads.min(releases.len());
         let worker_results = thread::scope(|scope| {
@@ -78,11 +78,17 @@ impl RustDocsCollector {
                             break;
                         };
 
-                        let progress_bar = progress.bars[index].clone();
+                        let progress_bar = progress.start(release);
                         match collector.collect_release_with_progress(release, &progress_bar) {
-                            Ok(observation) => observations.push(observation),
+                            Ok(observation) => {
+                                progress.finish(&progress_bar, format!("Rust {release} done"));
+                                observations.push(observation);
+                            }
                             Err(error) => {
-                                progress_bar.abandon_with_message(format!("failed: {error}"));
+                                progress.finish(
+                                    &progress_bar,
+                                    format!("Rust {release} failed: {error}"),
+                                );
                                 if first_error.is_none() {
                                     first_error = Some(error.to_string());
                                 }
@@ -130,8 +136,8 @@ impl RustDocsCollector {
     ) -> Result<ReleaseObservation> {
         validate_release_name(release)?;
         let html_root = self.ensure_docs(release, progress)?;
+        progress.set_message("counting methods");
         let counts = count_methods_in_html_root(&html_root, release)?;
-        progress.finish_with_message("done");
 
         Ok(ReleaseObservation {
             release: release.to_owned(),
@@ -144,7 +150,7 @@ impl RustDocsCollector {
     fn ensure_docs(&self, release: &str, progress: &ProgressBar) -> Result<PathBuf> {
         let release_cache = self.cache_root.join(release);
         if let Some(html_root) = find_html_root(&release_cache)? {
-            progress.finish_with_message("cached");
+            progress.set_message("reading cached docs");
             return Ok(html_root);
         }
 
@@ -169,6 +175,7 @@ impl RustDocsCollector {
             return Err(error);
         }
 
+        progress.set_message("extracting docs");
         let result = self.extract_archive(release, &archive_path, &artifact);
         let _ = fs::remove_file(&archive_path);
         result
@@ -446,34 +453,43 @@ fn unique_suffix() -> u128 {
 }
 
 struct ProgressBars {
-    _multi: MultiProgress,
-    bars: Vec<ProgressBar>,
+    multi: MultiProgress,
+    style: ProgressStyle,
 }
 
 impl ProgressBars {
-    fn new(releases: &[String]) -> Self {
-        let multi = MultiProgress::new();
+    fn new() -> Self {
+        Self::with_draw_target(ProgressDrawTarget::stderr())
+    }
+
+    fn with_draw_target(draw_target: ProgressDrawTarget) -> Self {
+        let multi = MultiProgress::with_draw_target(draw_target);
         let style = ProgressStyle::with_template(
             "{prefix:.bold.dim} {spinner:.green} [{bar:30.cyan/blue}] {bytes}/{total_bytes} {bytes_per_sec} {eta} {msg}",
         )
         .expect("progress bar template is valid")
         .progress_chars("=>-");
-        let bars = releases
-            .iter()
-            .map(|release| {
-                let progress = multi.add(ProgressBar::new(0));
-                progress.set_style(style.clone());
-                progress.set_prefix(format!("Rust {release}"));
-                progress.set_message("waiting");
-                progress.enable_steady_tick(std::time::Duration::from_millis(100));
-                progress
-            })
-            .collect();
 
-        Self {
-            _multi: multi,
-            bars,
-        }
+        Self { multi, style }
+    }
+
+    #[cfg(test)]
+    fn hidden() -> Self {
+        Self::with_draw_target(ProgressDrawTarget::hidden())
+    }
+
+    fn start(&self, release: &str) -> ProgressBar {
+        let progress = self.multi.add(ProgressBar::new(0));
+        progress.set_style(self.style.clone());
+        progress.set_prefix(format!("Rust {release}"));
+        progress.set_message("starting");
+        progress.enable_steady_tick(std::time::Duration::from_millis(100));
+        progress
+    }
+
+    fn finish(&self, progress: &ProgressBar, message: impl AsRef<str>) {
+        progress.finish_and_clear();
+        let _ = self.multi.println(message);
     }
 }
 
@@ -549,6 +565,18 @@ mod tests {
             .to_string();
 
         assert!(error.contains("parallel download count"));
+    }
+
+    #[test]
+    fn creates_a_progress_bar_only_when_a_release_starts() {
+        let progress = ProgressBars::hidden();
+        let bar = progress.start("1.42.0");
+
+        assert_eq!(bar.prefix(), "Rust 1.42.0");
+        assert_eq!(bar.message(), "starting");
+
+        progress.finish(&bar, "Rust 1.42.0 done");
+        assert!(bar.is_finished());
     }
 
     #[test]

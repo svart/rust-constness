@@ -33,8 +33,8 @@ struct RustDocs {
 #[derive(Debug, Deserialize)]
 struct TargetArtifact {
     available: bool,
-    url: String,
-    hash: String,
+    url: Option<String>,
+    hash: Option<String>,
 }
 
 pub(crate) fn manifest_url(release: &str) -> String {
@@ -87,7 +87,15 @@ pub(crate) fn resolve_docs_artifact(manifest: &str, host: &str) -> Result<DocsAr
     if !artifact.available {
         return Err(format!("rust-docs is unavailable for host target `{host}`").into());
     }
-    validated_artifact(artifact.url.clone(), artifact.hash.clone())
+    let url = artifact
+        .url
+        .clone()
+        .ok_or_else(|| format!("rust-docs for host target `{host}` has no URL"))?;
+    let hash = artifact
+        .hash
+        .clone()
+        .ok_or_else(|| format!("rust-docs for host target `{host}` has no SHA-256 hash"))?;
+    validated_artifact(url, hash)
 }
 
 fn legacy_archive_name(release: &str, host: &str) -> String {
@@ -126,10 +134,25 @@ mod tests {
         available = false
         url = "https://static.rust-lang.org/dist/unavailable.tar.gz"
         hash = "deadbeef"
+
+        [pkg.rust-docs.target.i686-apple-darwin]
+        available = false
     "#;
 
     #[test]
     fn resolves_the_host_specific_docs_artifact() {
+        assert_eq!(
+            resolve_docs_artifact(MANIFEST, "x86_64-unknown-linux-gnu").unwrap(),
+            DocsArtifact {
+                url: "https://static.rust-lang.org/dist/rust-docs.tar.gz".to_owned(),
+                sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn ignores_incomplete_unavailable_targets_when_resolving_the_host() {
         assert_eq!(
             resolve_docs_artifact(MANIFEST, "x86_64-unknown-linux-gnu").unwrap(),
             DocsArtifact {
