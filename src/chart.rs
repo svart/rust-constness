@@ -2,8 +2,8 @@ use std::path::Path;
 
 use plotly::{
     Plot, Scatter,
-    common::{Line, Mode},
-    layout::{Axis, Layout},
+    common::{Anchor, Line, Mode, Orientation},
+    layout::{Axis, Layout, Legend},
 };
 
 use crate::{Result, dataset::Dataset};
@@ -13,6 +13,11 @@ pub fn write_chart(dataset: &Dataset, output: &Path) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
+    build_plot(dataset).write_html(output);
+    Ok(())
+}
+
+fn build_plot(dataset: &Dataset) -> Plot {
     let releases = dataset
         .observations
         .iter()
@@ -42,15 +47,22 @@ pub fn write_chart(dataset: &Dataset, output: &Path) -> Result<()> {
         .title("Rust standard-library method constness")
         .x_axis(Axis::new().title("Rust release"))
         .y_axis(Axis::new().title("Number of methods"))
-        .height(700)
-        .width(1100);
+        .legend(
+            Legend::new()
+                .orientation(Orientation::Horizontal)
+                .x(0.5)
+                .x_anchor(Anchor::Center)
+                .y(1.02)
+                .y_anchor(Anchor::Bottom),
+        )
+        .auto_size(true)
+        .height(700);
 
     let mut plot = Plot::new();
     plot.add_trace(total_trace);
     plot.add_trace(const_trace);
     plot.set_layout(layout);
-    plot.write_html(output);
-    Ok(())
+    plot
 }
 
 #[cfg(test)]
@@ -59,7 +71,7 @@ mod tests {
     use crate::dataset::{Dataset, ReleaseObservation};
 
     #[test]
-    fn chart_json_contains_two_named_traces() {
+    fn chart_uses_a_top_legend_and_the_available_page_width() {
         let dataset = Dataset::new(vec![ReleaseObservation {
             release: "1.97.0".to_owned(),
             total_methods: 10,
@@ -68,21 +80,18 @@ mod tests {
         }])
         .unwrap();
 
-        let mut plot = Plot::new();
-        plot.add_trace(
-            Scatter::new(vec!["1.97.0"], vec![10])
-                .name("Total stable methods")
-                .mode(Mode::LinesMarkers),
-        );
-        plot.add_trace(
-            Scatter::new(vec!["1.97.0"], vec![4])
-                .name("Const-capable stable methods")
-                .mode(Mode::LinesMarkers),
-        );
-        let json = plot.to_json();
+        let chart: serde_json::Value =
+            serde_json::from_str(&build_plot(&dataset).to_json()).unwrap();
+        let layout = &chart["layout"];
 
-        assert!(json.contains("Total stable methods"));
-        assert!(json.contains("Const-capable stable methods"));
-        assert_eq!(dataset.observations.len(), 1);
+        assert_eq!(layout["autosize"], true);
+        assert!(layout.get("width").is_none());
+        assert_eq!(layout["legend"]["orientation"], "h");
+        assert_eq!(layout["legend"]["x"], 0.5);
+        assert_eq!(layout["legend"]["xanchor"], "center");
+        assert_eq!(layout["legend"]["y"], 1.02);
+        assert_eq!(layout["legend"]["yanchor"], "bottom");
+        assert_eq!(chart["data"][0]["name"], "Total stable methods");
+        assert_eq!(chart["data"][1]["name"], "Const-capable stable methods");
     }
 }
