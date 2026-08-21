@@ -1,71 +1,58 @@
 # rust-constness
 
+Tracks the growth of const-capable APIs in Rust's standard library across
+stable Rust releases.
+
 ![Rust standard-library method constness chart](assets/rust-standard-library-method-constness.png)
 
-This project collects the number of stable public methods and associated
-functions in Rust's standard-library rustdoc artifacts, then draws the totals
-and the const-capable subset as two Plotly lines in an HTML file.
-
-The collector downloads only the version-matched `rust-docs` archive from the
-official Rust distribution server. It uses release manifests where available
-and the archive's published checksum sidecar for Rust 1.0 through 1.7. It does
-not install Rust toolchains. The extracted HTML tree is cached under
-`target/rust-docs-cache/` and read at:
-
-```text
-<cache>/<release>/share/doc/rust/html/std/
-```
-
-The collector streams HTTPS downloads, verifies the published SHA-256 hash, and
-extracts the archive only after verification. Version retrievals run in
-parallel (5 by default), with one progress bar per release.
-
-The parser counts methods declared by inherent implementations and public
-traits. Methods from trait implementations, blanket implementations, and
-synthetic implementations are excluded so the same API method is not counted
-multiple times. A method contributes to the const-capable line only when it is
-stable and has stable const support in that release.
-
-Rustdoc's HTML has changed several times since Rust 1.0. The parser handles the
-historical method heading tags, stability markers, item metadata, sidebar
-layouts, and const-signature formats. For releases before `std/all.html` was
-introduced, it discovers item pages directly from the extracted documentation
-tree.
+The chart compares all stable public methods and associated functions with the
+subset that can be called in stable const contexts. The underlying observations
+are available in [`data/methods.json`](data/methods.json).
 
 ## Usage
 
-The Rust release catalogue is checked into `src/versions.rs`. Pass one exact
-release or an inclusive release range with `--version`:
-
-```text
---version 1.97.1
---version 1.50-1.97
-```
-
-Collect data and generate the chart in one command:
+Generate data and an interactive chart for a Rust release:
 
 ```bash
-cargo run --release -- generate \
-  --version 1.50-1.97 \
-  --parallel 5 \
-  --output target/rust-constness.html
+cargo run --release -- generate --version 1.98.0
 ```
 
-Or run collection and rendering separately:
+An inclusive range can be used to compare releases over time:
 
 ```bash
-cargo run --release -- collect --version 1.50-1.97
-cargo run --release -- chart \
-  --output target/rust-constness.html
+cargo run --release -- generate --version 1.50-1.98
 ```
 
-Use `--parallel N` to change the number of concurrent downloads. It must be a
-positive integer.
+The command writes the dataset to `data/methods.json` and the chart to
+`target/rust-constness.html`. To render the checked-in dataset without
+downloading documentation again, run:
 
-Collected data is always written to `data/methods.json`.
+```bash
+cargo run --release -- chart
+```
 
-The generated HTML embeds Plotly.js, so it can be opened directly without a
-separate web server.
+## Adding a Rust release
+
+Allowed release numbers are listed in
+[`AVAILABLE_RELEASES`](src/versions.rs). To add the next stable release:
+
+1. Append its full version number to `AVAILABLE_RELEASES` and update the version selection tests in the same file.
+2. Regenerate the complete dataset and chart. For example, after adding Rust 1.99.0, run:
+
+   ```bash
+   cargo run --release -- generate --version 1.0-1.99
+   ```
+
+3. Refresh `assets/rust-standard-library-method-constness.png` from the generated chart.
+
+## Methodology
+
+Data is collected from the official `rust-docs` archives published for each
+release. The count includes stable methods declared by inherent implementations
+and public traits. Trait implementation copies, blanket implementations, and
+synthetic implementations are excluded to avoid counting the same API more than
+once. A method is considered const-capable only when its const support is stable
+in that release.
 
 ## License
 
