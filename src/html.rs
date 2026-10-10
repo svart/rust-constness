@@ -10,11 +10,18 @@ use crate::{Result, rustdoc::MethodCounts, versions::release_is_before};
 
 const FIRST_STABLE_CONST_FN_RELEASE: &str = "1.31.0";
 
+/// Release ranges, as `[first, end)`, whose rustdoc prints `const fn` for
+/// methods that are not const-stable: const-unstable functions in 1.53-1.54
+/// and required methods of unstable const traits in 1.86-1.88.
+const CONST_SIGNATURE_LEAK_RELEASES: &[(&str, &str)] =
+    &[("1.53.0", "1.55.0"), ("1.86.0", "1.89.0")];
+
 /// Counts stable public methods from a version-matched Rust `rust-docs` archive.
 pub fn count_methods_in_html_root(root: &Path, release: &str) -> Result<MethodCounts> {
     let std_root = root.join("std");
     let pages = public_item_pages(&std_root)?;
     let stable_const_functions = !release_is_before(release, FIRST_STABLE_CONST_FN_RELEASE)?;
+    let trust_const_signatures = !const_signatures_leak(release)?;
 
     let mut counts = MethodCounts {
         total_methods: 0,
@@ -31,13 +38,22 @@ pub fn count_methods_in_html_root(root: &Path, release: &str) -> Result<MethodCo
             }
 
             counts.total_methods += 1;
-            if stable_const_functions && method_is_const_stable(&method) {
+            if stable_const_functions && method_is_const_stable(&method, trust_const_signatures) {
                 counts.const_methods += 1;
             }
         }
     }
 
     Ok(counts)
+}
+
+fn const_signatures_leak(release: &str) -> Result<bool> {
+    for (first, end) in CONST_SIGNATURE_LEAK_RELEASES {
+        if !release_is_before(release, first)? && release_is_before(release, end)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn public_item_pages(std_root: &Path) -> Result<HashSet<PathBuf>> {
@@ -191,7 +207,7 @@ fn next_sibling_element<'a>(element: &ElementRef<'a>) -> Option<ElementRef<'a>> 
     element.next_siblings().filter_map(ElementRef::wrap).next()
 }
 
-fn method_is_const_stable(method: &ElementRef<'_>) -> bool {
+fn method_is_const_stable(method: &ElementRef<'_>, trust_const_signatures: bool) -> bool {
     let metadata = method_metadata_text(method).to_ascii_lowercase();
     if metadata.contains("const: unstable") || metadata.contains("const unstable") {
         return false;
@@ -199,7 +215,8 @@ fn method_is_const_stable(method: &ElementRef<'_>) -> bool {
 
     metadata.contains("const:")
         || metadata.contains("const since")
-        || method_signature(method).is_some_and(|signature| signature_is_const(&signature))
+        || (trust_const_signatures
+            && method_signature(method).is_some_and(|signature| signature_is_const(&signature)))
 }
 
 fn method_metadata_text(method: &ElementRef<'_>) -> String {
@@ -419,6 +436,50 @@ mod tests {
     }
 
     #[test]
+    fn ignores_const_signatures_without_a_const_badge_where_rustdoc_leaked_const() {
+        for release in ["1.53.0", "1.54.0", "1.86.0", "1.88.0"] {
+            let root = fixture_root(
+                &format!("const-signature-leak-{release}"),
+                include_str!("../tests/fixtures/rustdoc/1.54-const-signatures.html"),
+                true,
+            );
+
+            assert_eq!(
+                count_methods_in_html_root(&root, release).unwrap(),
+                MethodCounts {
+                    total_methods: 2,
+                    const_methods: 1,
+                },
+                "Rust {release}"
+            );
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn trusts_const_signatures_without_a_const_badge_in_other_releases() {
+        // Rustdoc omits the const badge when an API became stable and const in
+        // the same release, so the signature is the only const marker.
+        for release in ["1.52.1", "1.55.0", "1.85.1", "1.89.0"] {
+            let root = fixture_root(
+                &format!("const-signature-trusted-{release}"),
+                include_str!("../tests/fixtures/rustdoc/1.54-const-signatures.html"),
+                true,
+            );
+
+            assert_eq!(
+                count_methods_in_html_root(&root, release).unwrap(),
+                MethodCounts {
+                    total_methods: 2,
+                    const_methods: 2,
+                },
+                "Rust {release}"
+            );
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
     fn discovers_item_pages_before_all_html_existed() {
         let root = fixture_root(
             "pre-all-index",
@@ -445,7 +506,7 @@ mod tests {
 
         let signature = method_signature(&const_method).unwrap();
         assert!(signature_is_const(&signature));
-        assert!(method_is_const_stable(&const_method));
+        assert!(method_is_const_stable(&const_method, true));
     }
 
     fn fixture_root(name: &str, item_html: &str, include_all_index: bool) -> PathBuf {
