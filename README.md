@@ -36,7 +36,7 @@ cargo run --release -- chart
 Allowed release numbers are listed in
 [`AVAILABLE_RELEASES`](src/versions.rs). To add the next stable release:
 
-1. Append its full version number to `AVAILABLE_RELEASES` and update the version selection tests in the same file.
+1. Append its full version number to `AVAILABLE_RELEASES`.
 2. Regenerate the complete dataset and chart. For example, after adding Rust 1.99.0, run:
 
    ```bash

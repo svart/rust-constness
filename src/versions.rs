@@ -158,9 +158,12 @@ mod tests {
 
     #[test]
     fn rejects_invalid_and_unsupported_specs() {
+        let latest = parse_release(AVAILABLE_RELEASES.last().unwrap()).unwrap();
+        let next_release = format!("{}.{}.0", latest.major, latest.minor + 1);
+
         assert!(select("1.97").is_err());
         assert!(select("1.97.1-1.50").is_err());
-        assert!(select("1.98.0").is_err());
+        assert!(select(&next_release).is_err());
         assert!(select("1.50-1.49").is_err());
     }
 
