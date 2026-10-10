@@ -19,7 +19,10 @@ const CONST_SIGNATURE_LEAK_RELEASES: &[(&str, &str)] =
 /// Counts stable public methods from a version-matched Rust `rust-docs` archive.
 pub fn count_methods_in_html_root(root: &Path, release: &str) -> Result<MethodCounts> {
     let std_root = root.join("std");
-    let pages = public_item_pages(&std_root)?;
+    let mut pages = public_item_pages(&std_root)?
+        .into_iter()
+        .collect::<Vec<_>>();
+    pages.sort();
     let stable_const_functions = !release_is_before(release, FIRST_STABLE_CONST_FN_RELEASE)?;
     let trust_const_signatures = !const_signatures_leak(release)?;
 
@@ -27,11 +30,18 @@ pub fn count_methods_in_html_root(root: &Path, release: &str) -> Result<MethodCo
         total_methods: 0,
         const_methods: 0,
     };
+    let mut counted_items = HashSet::new();
 
     for relative in pages {
         let page = std_root.join(&relative);
         let html = fs::read_to_string(&page)?;
         let document = Html::parse_document(&html);
+        // Std re-exports some items under several paths, such as
+        // `collections::BTreeMap` and `collections::btree_map::BTreeMap`, and
+        // rustdoc renders a full page for each path.
+        if !counted_items.insert(item_identity(&document, &relative)) {
+            continue;
+        }
         for method in declared_methods(&document) {
             if method_is_unstable(&method) {
                 continue;
@@ -45,6 +55,38 @@ pub fn count_methods_in_html_root(root: &Path, release: &str) -> Result<MethodCo
     }
 
     Ok(counts)
+}
+
+/// Identifies the documented item by its page file name and the source link of
+/// the item, so every page of one re-exported item has the same identity. The
+/// file name keeps apart distinct items that one macro invocation generated.
+/// A page without a source link is identified by its path.
+fn item_identity(document: &Html, relative: &Path) -> (PathBuf, Option<String>) {
+    match (relative.file_name(), item_source_link(document)) {
+        (Some(file_name), Some(source)) => (PathBuf::from(file_name), Some(source)),
+        _ => (relative.to_owned(), None),
+    }
+}
+
+/// Returns the first source link on the page, which is the item's own, without
+/// the leading `../` segments that depend on the depth of the page.
+fn item_source_link(document: &Html) -> Option<String> {
+    let link_selector = Selector::parse("a[href]").expect("valid link selector");
+    let link = document.select(&link_selector).find(|link| {
+        let text = link.text().collect::<String>();
+        let text = text.trim();
+        link.value()
+            .classes()
+            .any(|class_name| matches!(class_name, "src" | "srclink"))
+            || text == "[src]"
+            || text.eq_ignore_ascii_case("source")
+    })?;
+
+    let mut href = link.value().attr("href")?;
+    while let Some(rest) = href.strip_prefix("../") {
+        href = rest;
+    }
+    Some(href.to_owned())
 }
 
 fn const_signatures_leak(release: &str) -> Result<bool> {
@@ -477,6 +519,116 @@ mod tests {
             );
             fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    #[test]
+    fn counts_an_item_documented_under_several_paths_once() {
+        let root = std::env::temp_dir().join(format!(
+            "rust-constness-html-reexports-{}",
+            std::process::id()
+        ));
+        let std_root = root.join("std");
+        fs::create_dir_all(std_root.join("collections/btree_map")).unwrap();
+        fs::write(
+            std_root.join("all.html"),
+            r#"<a href="collections/struct.BTreeMap.html">BTreeMap</a>
+               <a href="collections/btree_map/struct.BTreeMap.html">BTreeMap</a>"#,
+        )
+        .unwrap();
+        let page = |path_to_root: &str| {
+            format!(
+                r##"<h1>Struct BTreeMap<a class="src" href="{path_to_root}src/alloc/collections/btree/map.rs.html#173">Source</a></h1>
+                <h2 id="implementations">Implementations</h2>
+                <section id="method.new" class="method"><span class="since">1.0.0 (const: 1.66.0)</span></section>"##
+            )
+        };
+        fs::write(
+            std_root.join("collections/struct.BTreeMap.html"),
+            page("../../"),
+        )
+        .unwrap();
+        fs::write(
+            std_root.join("collections/btree_map/struct.BTreeMap.html"),
+            page("../../../"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.99.0").unwrap(),
+            MethodCounts {
+                total_methods: 1,
+                const_methods: 1,
+            }
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn counts_an_item_documented_under_several_paths_once_with_legacy_source_links() {
+        let root = std::env::temp_dir().join(format!(
+            "rust-constness-html-legacy-reexports-{}",
+            std::process::id()
+        ));
+        let std_root = root.join("std");
+        fs::create_dir_all(std_root.join("collections/btree_map")).unwrap();
+        fs::write(std_root.join("index.html"), "std").unwrap();
+        let page = |path_to_root: &str| {
+            format!(
+                r##"<h1 class='fqn'>Struct BTreeMap<a id='src-10858' href='{path_to_root}collections/btree/map/struct.BTreeMap.html?gotosrc=10858'>[src]</a></h1>
+                <h2 id='methods'>Methods</h2>
+                <h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>()</code></h4>"##
+            )
+        };
+        fs::write(
+            std_root.join("collections/struct.BTreeMap.html"),
+            page("../../"),
+        )
+        .unwrap();
+        fs::write(
+            std_root.join("collections/btree_map/struct.BTreeMap.html"),
+            page("../../../"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.0.0")
+                .unwrap()
+                .total_methods,
+            1
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn counts_distinct_items_that_share_a_source_link() {
+        // One macro invocation generated both types, so their pages link to
+        // the same source line.
+        let root = std::env::temp_dir().join(format!(
+            "rust-constness-html-macro-items-{}",
+            std::process::id()
+        ));
+        let std_root = root.join("std");
+        fs::create_dir_all(std_root.join("num")).unwrap();
+        fs::write(
+            std_root.join("all.html"),
+            r#"<a href="num/struct.NonZeroU8.html">NonZeroU8</a>
+               <a href="num/struct.NonZeroU16.html">NonZeroU16</a>"#,
+        )
+        .unwrap();
+        let page = r##"<h1>Struct NonZero<a class="src" href="../../src/core/num/nonzero.rs.html#97">Source</a></h1>
+            <h2 id="implementations">Implementations</h2>
+            <section id="method.get" class="method"><span class="since">1.28.0 (const: 1.34.0)</span></section>"##;
+        fs::write(std_root.join("num/struct.NonZeroU8.html"), page).unwrap();
+        fs::write(std_root.join("num/struct.NonZeroU16.html"), page).unwrap();
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.70.0").unwrap(),
+            MethodCounts {
+                total_methods: 2,
+                const_methods: 2,
+            }
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
