@@ -256,13 +256,13 @@
     {
       "release": "1.31.0",
       "total_methods": 2075,
-      "const_methods": 155,
+      "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.31.0/share/doc/rust/html"
     },
     {
       "release": "1.31.1",
       "total_methods": 2075,
-      "const_methods": 155,
+      "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.31.1/share/doc/rust/html"
     },
     {

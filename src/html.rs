@@ -8,7 +8,10 @@ use scraper::{ElementRef, Html, Selector};
 
 use crate::{Result, rustdoc::MethodCounts, versions::release_is_before};
 
-const FIRST_STABLE_CONST_FN_RELEASE: &str = "1.31.0";
+/// Rustdoc before 1.32 prints `const fn` for const-unstable functions too and
+/// has no const badges, so constness is counted from 1.32 only. This misses the
+/// few methods that were const-stable earlier, such as `Cell::new` (1.24).
+const FIRST_CONST_AWARE_RUSTDOC_RELEASE: &str = "1.32.0";
 
 /// Release ranges, as `[first, end)`, whose rustdoc prints `const fn` for
 /// methods that are not const-stable: const-unstable functions in 1.53-1.54
@@ -23,7 +26,7 @@ pub fn count_methods_in_html_root(root: &Path, release: &str) -> Result<MethodCo
         .into_iter()
         .collect::<Vec<_>>();
     pages.sort();
-    let stable_const_functions = !release_is_before(release, FIRST_STABLE_CONST_FN_RELEASE)?;
+    let stable_const_functions = !release_is_before(release, FIRST_CONST_AWARE_RUSTDOC_RELEASE)?;
     let trust_const_signatures = !const_signatures_leak(release)?;
 
     let mut counts = MethodCounts {
@@ -515,6 +518,26 @@ mod tests {
                     total_methods: 2,
                     const_methods: 2,
                 },
+                "Rust {release}"
+            );
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn ignores_const_signatures_before_rustdoc_hid_const_unstable_functions() {
+        for (release, const_methods) in [("1.31.0", 0), ("1.31.1", 0), ("1.32.0", 1)] {
+            let root = fixture_root(
+                &format!("const-signature-before-1.32-{release}"),
+                include_str!("../tests/fixtures/rustdoc/1.40.html"),
+                true,
+            );
+
+            assert_eq!(
+                count_methods_in_html_root(&root, release)
+                    .unwrap()
+                    .const_methods,
+                const_methods,
                 "Rust {release}"
             );
             fs::remove_dir_all(root).unwrap();
