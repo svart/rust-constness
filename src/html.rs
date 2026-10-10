@@ -171,16 +171,24 @@ fn is_unstable_marker(element: &ElementRef<'_>) -> bool {
 }
 
 fn adjacent_item_metadata<'a>(method: &ElementRef<'a>) -> Option<ElementRef<'a>> {
-    method
-        .next_siblings()
-        .filter_map(ElementRef::wrap)
-        .next()
+    next_sibling_element(method)
+        // Rustdoc 1.54 through 1.77 places trait method metadata after the
+        // enclosing <summary> instead of directly after the method section.
+        .or_else(|| {
+            ElementRef::wrap(method.parent()?)
+                .filter(|parent| parent.value().name() == "summary")
+                .and_then(|summary| next_sibling_element(&summary))
+        })
         .filter(|element| {
             element
                 .value()
                 .classes()
                 .any(|class_name| matches!(class_name, "item-info" | "stability"))
         })
+}
+
+fn next_sibling_element<'a>(element: &ElementRef<'a>) -> Option<ElementRef<'a>> {
+    element.next_siblings().filter_map(ElementRef::wrap).next()
 }
 
 fn method_is_const_stable(method: &ElementRef<'_>) -> bool {
@@ -387,6 +395,24 @@ mod tests {
             MethodCounts {
                 total_methods: 2,
                 const_methods: 1,
+            }
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn excludes_unstable_trait_methods_whose_badge_follows_the_summary() {
+        let root = fixture_root(
+            "1.77-trait-methods",
+            include_str!("../tests/fixtures/rustdoc/1.77-trait-methods.html"),
+            true,
+        );
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.77.2").unwrap(),
+            MethodCounts {
+                total_methods: 2,
+                const_methods: 0,
             }
         );
         fs::remove_dir_all(root).unwrap();
