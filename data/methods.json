@@ -834,6 +834,12 @@
       "total_methods": 4796,
       "const_methods": 2524,
       "source": "rust-docs-archive:target/rust-docs-cache/1.98.0/share/doc/rust/html"
+    },
+    {
+      "release": "1.99.0",
+      "total_methods": 4836,
+      "const_methods": 2526,
+      "source": "rust-docs-archive:target/rust-docs-cache/1.99.0/share/doc/rust/html"
     }
   ]
 }
