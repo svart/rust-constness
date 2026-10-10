@@ -1,7 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use rust_constness::{
-    Result, chart::write_chart, collector::RustDocsCollector, dataset::Dataset, versions,
+    Result,
+    cache::CacheStatus,
+    chart::write_chart,
+    collector::{DEFAULT_CACHE_ROOT, RustDocsCollector},
+    dataset::Dataset,
+    versions,
 };
 
 const DEFAULT_DATA_PATH: &str = "data/methods.json";
@@ -25,6 +30,7 @@ fn run(args: Vec<String>) -> Result<()> {
         "collect" => collect_command(&args[1..]),
         "chart" => chart_command(&args[1..]),
         "generate" => generate_command(&args[1..]),
+        "cache" => cache_command(&args[1..]),
         "help" | "--help" | "-h" => {
             print_usage();
             Ok(())
@@ -71,6 +77,48 @@ fn generate_command(args: &[String]) -> Result<()> {
     println!("saved data to {DEFAULT_DATA_PATH}");
     println!("saved chart to {}", options.output_path.display());
     Ok(())
+}
+
+fn cache_command(args: &[String]) -> Result<()> {
+    if wants_help(args) {
+        print_usage();
+        return Ok(());
+    }
+    if args != ["--status"] {
+        return Err(format!("expected `cache --status`\n\n{}", usage()).into());
+    }
+
+    let status = CacheStatus::read(Path::new(DEFAULT_CACHE_ROOT))?;
+    if status.releases.is_empty() {
+        println!("Cached Rust versions: none");
+    } else {
+        println!("Cached Rust versions ({}):", status.releases.len());
+        for release in &status.releases {
+            println!("  {release}");
+        }
+    }
+    println!("Location: {}", status.location.display());
+    println!(
+        "Size: {} ({} bytes)",
+        format_size(status.size_bytes),
+        status.size_bytes
+    );
+    Ok(())
+}
+
+fn format_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
 }
 
 #[derive(Debug, Default)]
@@ -141,6 +189,7 @@ fn usage() -> &'static str {
   rust-constness collect  --version VERSION_OR_RANGE [--parallel N]
   rust-constness chart    [--output CHART.html]
   rust-constness generate --version VERSION_OR_RANGE [--parallel N] [--output CHART.html]
+  rust-constness cache    --status
 
 VERSION_OR_RANGE is an exact release such as 1.97.1 or an inclusive range
 such as 1.50-1.97. Collected data is always saved to data/methods.json.
@@ -148,7 +197,9 @@ Downloads run in parallel, with 5 downloads by default; use --parallel N to
 configure the number of concurrent version retrievals.
 
 The collector downloads only the version-matched rust-docs archive, verifies
-its checksum, and caches the extracted HTML under target/rust-docs-cache."
+its checksum, and caches the extracted HTML under target/rust-docs-cache.
+`cache --status` lists the cached Rust versions, the cache location, and the
+total size of the files in it."
 }
 
 fn print_usage() {
@@ -208,6 +259,22 @@ mod tests {
             let error = parse_options(&arguments(&[flag, "value"]), "generate").unwrap_err();
             assert!(error.to_string().contains("unknown generate option"));
         }
+    }
+
+    #[test]
+    fn cache_requires_the_status_flag() {
+        for args in [&[][..], &["--clear"][..], &["--status", "--status"][..]] {
+            let error = cache_command(&arguments(args)).unwrap_err();
+            assert!(error.to_string().contains("expected `cache --status`"));
+        }
+    }
+
+    #[test]
+    fn formats_sizes_with_binary_units() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1536), "1.5 KiB");
+        assert_eq!(format_size(11_053_883_966), "10.3 GiB");
     }
 
     #[test]

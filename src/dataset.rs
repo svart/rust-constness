@@ -75,7 +75,7 @@ impl Dataset {
     }
 }
 
-fn compare_releases(left: &str, right: &str) -> Ordering {
+pub(crate) fn compare_releases(left: &str, right: &str) -> Ordering {
     match (release_key(left), release_key(right)) {
         (Some(left_key), Some(right_key)) => left_key.cmp(&right_key).then_with(|| left.cmp(right)),
         (Some(_), None) => Ordering::Less,

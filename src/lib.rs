@@ -1,4 +1,5 @@
 mod artifact;
+pub mod cache;
 pub mod chart;
 pub mod collector;
 pub mod dataset;

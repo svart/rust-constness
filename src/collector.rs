@@ -24,7 +24,7 @@ use crate::{
     html::count_methods_in_html_root,
 };
 
-const DEFAULT_CACHE_ROOT: &str = "target/rust-docs-cache";
+pub const DEFAULT_CACHE_ROOT: &str = "target/rust-docs-cache";
 const MAX_MANIFEST_BYTES: u64 = 10 * 1024 * 1024;
 const MAX_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_EXTRACTED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
@@ -343,7 +343,7 @@ fn verify_sha256(path: &Path, expected: &str) -> Result<()> {
     }
 }
 
-fn find_html_root(root: &Path) -> Result<Option<PathBuf>> {
+pub(crate) fn find_html_root(root: &Path) -> Result<Option<PathBuf>> {
     find_html_root_at_depth(root, 0)
 }
 

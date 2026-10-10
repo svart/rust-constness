@@ -31,6 +31,13 @@ downloading documentation again, run:
 cargo run --release -- chart
 ```
 
+Downloaded documentation is cached under `target/rust-docs-cache`. To list the
+cached Rust versions, the cache location, and its total size, run:
+
+```bash
+cargo run --release -- cache --status
+```
+
 ## Adding a Rust release
 
 Allowed release numbers are listed in
