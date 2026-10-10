@@ -42,7 +42,9 @@ pub fn count_methods_in_html_root(root: &Path, release: &str) -> Result<MethodCo
         // Std re-exports some items under several paths, such as
         // `collections::BTreeMap` and `collections::btree_map::BTreeMap`, and
         // rustdoc renders a full page for each path.
-        if !counted_items.insert(item_identity(&document, &relative)) {
+        if unstable_primitive(&relative, &document)
+            || !counted_items.insert(item_identity(&document, &relative))
+        {
             continue;
         }
         for method in declared_methods(&document) {
@@ -208,10 +210,36 @@ fn is_method_element(element: &ElementRef<'_>, id: &str) -> bool {
             .any(|class_name| class_name == "method")
 }
 
+/// Detects an unstable primitive type such as `i128` before Rust 1.26, whose
+/// methods show the stable version of the shared integer macro. Other unstable
+/// items are not skipped as a whole: stable aliases (`NonZeroU8` for
+/// `NonZero<T>`), stable re-exports, or the prelude can still reach their
+/// methods, so only the methods' own badges decide.
+fn unstable_primitive(relative: &Path, document: &Html) -> bool {
+    relative
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("primitive."))
+        && item_is_unstable(document)
+}
+
+/// Checks the badges of the documented item itself, which come before the first
+/// section heading. Sidebar headings have no id, so they do not end the search.
+fn item_is_unstable(document: &Html) -> bool {
+    document
+        .root_element()
+        .descendent_elements()
+        .take_while(|element| {
+            element.value().name() != "h2" || element.value().attr("id").is_none()
+        })
+        .any(|element| is_unstable_marker(&element))
+}
+
 fn method_is_unstable(method: &ElementRef<'_>) -> bool {
     element_has_unstable_marker(method)
         || adjacent_item_metadata(method)
-            .is_some_and(|metadata| element_has_unstable_marker(&metadata))
+            .iter()
+            .any(element_has_unstable_marker)
 }
 
 fn element_has_unstable_marker(element: &ElementRef<'_>) -> bool {
@@ -231,21 +259,27 @@ fn is_unstable_marker(element: &ElementRef<'_>) -> bool {
             .any(|class_name| matches!(*class_name, "stab" | "stability"))
 }
 
-fn adjacent_item_metadata<'a>(method: &ElementRef<'a>) -> Option<ElementRef<'a>> {
-    next_sibling_element(method)
+/// Returns the metadata elements that directly follow a method. Early rustdoc
+/// renders one element per badge, for example a deprecation badge followed by
+/// an unstable badge.
+fn adjacent_item_metadata<'a>(method: &ElementRef<'a>) -> Vec<ElementRef<'a>> {
+    let first = next_sibling_element(method)
         // Rustdoc 1.54 through 1.77 places trait method metadata after the
         // enclosing <summary> instead of directly after the method section.
         .or_else(|| {
             ElementRef::wrap(method.parent()?)
                 .filter(|parent| parent.value().name() == "summary")
                 .and_then(|summary| next_sibling_element(&summary))
-        })
-        .filter(|element| {
+        });
+
+    std::iter::successors(first, next_sibling_element)
+        .take_while(|element| {
             element
                 .value()
                 .classes()
                 .any(|class_name| matches!(class_name, "item-info" | "stability"))
         })
+        .collect()
 }
 
 fn next_sibling_element<'a>(element: &ElementRef<'a>) -> Option<ElementRef<'a>> {
@@ -274,7 +308,7 @@ fn method_metadata_text(method: &ElementRef<'_>) -> String {
             metadata.push_str(title);
         }
     }
-    if let Some(item_metadata) = adjacent_item_metadata(method) {
+    for item_metadata in adjacent_item_metadata(method) {
         metadata.extend(item_metadata.text());
     }
     metadata
@@ -522,6 +556,102 @@ mod tests {
             );
             fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    #[test]
+    fn excludes_methods_whose_unstable_badge_follows_a_deprecation_badge() {
+        let root = fixture_root(
+            "deprecated-unstable-method",
+            r##"<h2 id='methods'>Methods</h2>
+            <h4 id='method.len' class='method'><code>fn <a href='#method.len' class='fnname'>len</a>(&amp;self) -&gt; usize</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></h4>
+            <div class='docblock'><p>Returns the length.</p></div>
+            <h4 id='method.char_at' class='method'><code>fn <a href='#method.char_at' class='fnname'>char_at</a>(&amp;self, i: usize) -&gt; char</code></h4>
+            <div class='stability'><em class='stab deprecated'>Deprecated since 1.9.0</em></div>
+            <div class='stability'><em class='stab unstable'>Unstable (<code>str_char</code>)</em></div>
+            <div class='docblock'><p>Returns the char at a byte position.</p></div>"##,
+            true,
+        );
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.10.0")
+                .unwrap()
+                .total_methods,
+            1
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn excludes_methods_of_unstable_primitive_types() {
+        let root = std::env::temp_dir().join(format!(
+            "rust-constness-html-unstable-primitive-{}",
+            std::process::id()
+        ));
+        let std_root = root.join("std");
+        fs::create_dir_all(&std_root).unwrap();
+        fs::write(
+            std_root.join("all.html"),
+            r#"<a href="primitive.i128.html">i128</a>"#,
+        )
+        .unwrap();
+        fs::write(
+            std_root.join("primitive.i128.html"),
+            r##"<h1 class='fqn'><span class='in-band'>Primitive Type <a class='primitive' href=''>i128</a></span></h1>
+            <div class='stability'><div class='stab unstable'>This is a nightly-only experimental API. (<code>i128</code>)</div></div>
+            <h2 id='methods'>Methods</h2>
+            <h4 id='method.count_ones' class='method'><code>fn <a href='#method.count_ones' class='fnname'>count_ones</a>(self) -&gt; u32</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></h4>"##,
+        )
+        .unwrap();
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.16.0")
+                .unwrap()
+                .total_methods,
+            0
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn counts_stable_methods_of_unstable_items_reached_through_stable_aliases() {
+        // `NonZero<T>` was unstable until 1.79, but `NonZeroU8::new` was not.
+        let root = fixture_root(
+            "unstable-generic-item",
+            r##"<h1>Struct <span class="struct">NonZero</span></h1>
+            <span class="item-info"><div class="stab unstable">This is a nightly-only experimental API. (<code>generic_nonzero</code>)</div></span>
+            <h2 id="implementations">Implementations</h2>
+            <section id="method.get" class="method"><span class="since">1.28.0 (const: 1.34.0)</span><h4 class="code-header">pub const fn get(self) -&gt; u8</h4></section>"##,
+            true,
+        );
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.77.0").unwrap(),
+            MethodCounts {
+                total_methods: 1,
+                const_methods: 1,
+            }
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn counts_methods_of_deprecated_stable_items() {
+        let root = fixture_root(
+            "deprecated-item",
+            r##"<h1 class='fqn'><span class='in-band'>Struct <a class='struct' href=''>SipHasher</a></span></h1>
+            <div class='stability'><em class='stab deprecated'>Deprecated since 1.13.0</em></div>
+            <h2 id='methods'>Methods</h2>
+            <h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>() -&gt; SipHasher</code></h4>"##,
+            true,
+        );
+
+        assert_eq!(
+            count_methods_in_html_root(&root, "1.13.0")
+                .unwrap()
+                .total_methods,
+            1
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

@@ -63,121 +63,121 @@
     },
     {
       "release": "1.10.0",
-      "total_methods": 1678,
+      "total_methods": 1643,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.10.0/share/doc/rust/html"
     },
     {
       "release": "1.11.0",
-      "total_methods": 1670,
+      "total_methods": 1644,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.11.0/share/doc/rust/html"
     },
     {
       "release": "1.12.0",
-      "total_methods": 1674,
+      "total_methods": 1662,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.12.0/share/doc/rust/html"
     },
     {
       "release": "1.12.1",
-      "total_methods": 1674,
+      "total_methods": 1662,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.12.1/share/doc/rust/html"
     },
     {
       "release": "1.13.0",
-      "total_methods": 1694,
+      "total_methods": 1676,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.13.0/share/doc/rust/html"
     },
     {
       "release": "1.14.0",
-      "total_methods": 1698,
+      "total_methods": 1680,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.14.0/share/doc/rust/html"
     },
     {
       "release": "1.15.0",
-      "total_methods": 1725,
+      "total_methods": 1704,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.15.0/share/doc/rust/html"
     },
     {
       "release": "1.15.1",
-      "total_methods": 1725,
+      "total_methods": 1704,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.15.1/share/doc/rust/html"
     },
     {
       "release": "1.16.0",
-      "total_methods": 1818,
+      "total_methods": 1724,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.16.0/share/doc/rust/html"
     },
     {
       "release": "1.17.0",
-      "total_methods": 1834,
+      "total_methods": 1740,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.17.0/share/doc/rust/html"
     },
     {
       "release": "1.18.0",
-      "total_methods": 1841,
+      "total_methods": 1747,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.18.0/share/doc/rust/html"
     },
     {
       "release": "1.19.0",
-      "total_methods": 1844,
+      "total_methods": 1750,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.19.0/share/doc/rust/html"
     },
     {
       "release": "1.20.0",
-      "total_methods": 1876,
+      "total_methods": 1782,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.20.0/share/doc/rust/html"
     },
     {
       "release": "1.21.0",
-      "total_methods": 1903,
+      "total_methods": 1809,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.21.0/share/doc/rust/html"
     },
     {
       "release": "1.22.0",
-      "total_methods": 1903,
+      "total_methods": 1809,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.22.0/share/doc/rust/html"
     },
     {
       "release": "1.22.1",
-      "total_methods": 1903,
+      "total_methods": 1809,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.22.1/share/doc/rust/html"
     },
     {
       "release": "1.23.0",
-      "total_methods": 1921,
+      "total_methods": 1827,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.23.0/share/doc/rust/html"
     },
     {
       "release": "1.24.0",
-      "total_methods": 1949,
+      "total_methods": 1855,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.24.0/share/doc/rust/html"
     },
     {
       "release": "1.24.1",
-      "total_methods": 1949,
+      "total_methods": 1855,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.24.1/share/doc/rust/html"
     },
     {
       "release": "1.25.0",
-      "total_methods": 1956,
+      "total_methods": 1862,
       "const_methods": 0,
       "source": "rust-docs-archive:target/rust-docs-cache/1.25.0/share/doc/rust/html"
     },
