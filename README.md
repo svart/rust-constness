@@ -44,10 +44,11 @@ Allowed release numbers are listed in
 [`AVAILABLE_RELEASES`](src/versions.rs). To add the next stable release:
 
 1. Append its full version number to `AVAILABLE_RELEASES`.
-2. Regenerate the complete dataset and chart. For example, after adding Rust 1.99.0, run:
+2. Regenerate the complete dataset and chart, where `NEW_RELEASE` is the
+   version number appended in step 1:
 
    ```bash
-   cargo run --release -- generate --version 1.0-1.99
+   cargo run --release -- generate --version 1.0-NEW_RELEASE
    ```
 
 3. Refresh `assets/rust-standard-library-method-constness.png` from the generated chart.
