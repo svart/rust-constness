@@ -60,13 +60,6 @@ pub fn select(specification: &str) -> Result<Vec<String>> {
             })
             .map(str::to_owned)
             .collect::<Vec<_>>();
-
-        if releases.is_empty() {
-            return Err(format!(
-                "Rust version range `{specification}` does not contain a supported release"
-            )
-            .into());
-        }
         return Ok(releases);
     }
 
@@ -79,11 +72,12 @@ pub fn select(specification: &str) -> Result<Vec<String>> {
         return Ok(vec![specification.to_owned()]);
     }
 
-    Err(format!("Rust release `{specification}` is not in the built-in catalogue").into())
+    Err(format!("Rust version `{specification}` is not in the allowed list").into())
 }
 
 fn parse_bound(value: &str, upper: bool) -> Result<Version> {
-    let mut parts = value.trim().split('.');
+    let value = value.trim();
+    let mut parts = value.split('.');
     let major = parse_component(parts.next(), value)?;
     let minor = parse_component(parts.next(), value)?;
     let patch = match parts.next() {
@@ -93,18 +87,31 @@ fn parse_bound(value: &str, upper: bool) -> Result<Version> {
                     format!("expected MAJOR.MINOR or MAJOR.MINOR.PATCH, got `{value}`").into(),
                 );
             }
-            patch
-                .parse()
-                .map_err(|_| format!("invalid patch number in `{value}`"))?
+            Some(
+                patch
+                    .parse()
+                    .map_err(|_| format!("invalid patch number in `{value}`"))?,
+            )
         }
-        None if upper => u64::MAX,
-        None => 0,
+        None => None,
     };
+
+    // A bound must name a listed release, or a minor series with at least one
+    // listed release, so a range never silently stops short of what was asked.
+    let is_allowed = AVAILABLE_RELEASES.iter().any(|release| {
+        let release = parse_release(release).expect("catalogue contains valid releases");
+        release.major == major
+            && release.minor == minor
+            && patch.is_none_or(|patch| release.patch == patch)
+    });
+    if !is_allowed {
+        return Err(format!("Rust version `{value}` is not in the allowed list").into());
+    }
 
     Ok(Version {
         major,
         minor,
-        patch,
+        patch: patch.unwrap_or(if upper { u64::MAX } else { 0 }),
     })
 }
 
@@ -165,6 +172,36 @@ mod tests {
         assert!(select("1.97.1-1.50").is_err());
         assert!(select(&next_release).is_err());
         assert!(select("1.50-1.49").is_err());
+    }
+
+    #[test]
+    fn rejects_range_bounds_outside_the_allowed_list() {
+        let latest = parse_release(AVAILABLE_RELEASES.last().unwrap()).unwrap();
+        let next_minor = format!("{}.{}", latest.major, latest.minor + 1);
+
+        for (specification, version) in [
+            (format!("1.0-{next_minor}"), next_minor.as_str()),
+            ("0.9-1.50".to_owned(), "0.9"),
+            ("1.50.0-1.97.2".to_owned(), "1.97.2"),
+        ] {
+            assert_eq!(
+                select(&specification).unwrap_err().to_string(),
+                format!("Rust version `{version}` is not in the allowed list")
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_an_exact_release_outside_the_allowed_list() {
+        assert_eq!(
+            select("1.97.2").unwrap_err().to_string(),
+            "Rust version `1.97.2` is not in the allowed list"
+        );
+    }
+
+    #[test]
+    fn selects_a_range_with_patch_qualified_bounds() {
+        assert_eq!(select("1.45.1-1.45.2").unwrap(), ["1.45.1", "1.45.2"]);
     }
 
     #[test]
